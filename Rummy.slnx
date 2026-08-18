@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Rummy.Tests/Rummy.Tests.csproj" Id="cb286e0a-7ef9-484b-951a-0d1026f39a5a" />
+  <Project Path="Rummy/Rummy.csproj" />
+</Solution>

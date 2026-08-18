@@ -1,0 +1,28 @@
+# .NET build output
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# Test results
+TestResults/
+*.trx
+
+# NuGet packages / generated artifacts
+packages/
+*.nupkg
+artifacts/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
