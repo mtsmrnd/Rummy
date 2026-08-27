@@ -116,6 +116,7 @@ public class Game
     {
         for (int i = 0; i < _players.Count; i++)
         {
+            //PLACEHOLDER, CHECK COUNT OF POINTS, NOT CARDS
             _players[i].AddPoints(_players[i].Hand.Count);
         }
         if (_currentRoundIndex == _rounds.Count - 1)
@@ -306,7 +307,7 @@ public class Game
     private bool IsValidStraight4(IEnumerable<Card> cards)
     {
         List<Card> cardsInStraight = new List<Card>(cards).OrderBy(card => (int)card.Rank).Where(card => card.Rank != Rank.Joker).ToList();
-        int jokersInStraight = cards.Where(card => card.Rank == Rank.Joker).Count();
+        int jokersInStraight = cards.Count(card => card.Rank == Rank.Joker);
 
         int cardCount = cardsInStraight.Count;
 
@@ -358,7 +359,7 @@ public class Game
     private bool IsValidStraight13(IEnumerable<Card> cards)
     {
         List<Card> cardsInStraight = new List<Card>(cards).Where(card => card.Rank != Rank.Joker).ToList();
-        int jokersInStraight = cards.Where(card => card.Rank == Rank.Joker).Count();
+        int jokersInStraight = cards.Count(card => card.Rank == Rank.Joker);
 
         Dictionary<Rank, bool> dict = new Dictionary<Rank, bool>();
         foreach (Card card in cardsInStraight)
@@ -428,18 +429,17 @@ public class Game
                 bool test = cardsInHandSet.Add(card);
                 if (!test) return;
             }
-            if (!checkCardsInHand(meld.Cards)) return;
+            if (!CheckCardsInHand(meld.Cards)) return;
         }
         foreach (Meld meld in candidateMeldList)
         {
-            //PlayMeld
-            PlayMeld(meld);
             // (Add meld to round, remove cards from hand)
+            PlayMeld(meld);
         }
         CurrentPlayer.CompleteObjective();
     }
 
-    private bool checkCardsInHand(IEnumerable<Card> cards)
+    private bool CheckCardsInHand(IEnumerable<Card> cards)
     {
         foreach (Card card in cards)
         {
@@ -452,7 +452,7 @@ public class Game
     {
         if (CurrentTurnPhase != TurnPhase.Play) return;
         if (CurrentPlayer.Status != ObjectiveStatus.Active) return;
-        if (!checkCardsInHand(new List<Card> { card })) return;
+        if (!CheckCardsInHand(new List<Card> { card })) return;
         if (meld.Type == MeldType.Set)
         {
             if (ValidateSetExtension(card, meld))
@@ -465,7 +465,13 @@ public class Game
         }
         if (meld.Type == MeldType.Straight)
         {
-
+            if (ValidateStraightExtension(card, meld, side))
+            {
+                if (meld.AddCard(card, side))
+                {
+                    CurrentPlayer.Hand.RemoveCard(card);
+                }
+            }
         }
     }
 
@@ -485,8 +491,9 @@ public class Game
         return card.Rank == meldRank;
     }
 
-    private bool ValidateStraightExtension(Card card, Meld meld, MeldSide side)
+    private bool ValidateStraightExtension(Card card, Meld meld, MeldSide? side)
     {
+        if (side == null) return false;
         Suit? meldSuit = null;
         foreach (Card cardInMeld in meld.Cards)
         {
@@ -496,40 +503,46 @@ public class Game
                 break;
             }
         }
-        if (card.Suit != meldSuit) return false;
+        if (card.Suit != meldSuit && card.Suit != Suit.Joker) return false;
 
         if (side == MeldSide.Left)
         {
             Rank leftRank = meld.Cards[0].Rank;
-            if (card.Rank == Rank.Joker && leftRank == Rank.Joker) return false;
-
-            if (leftRank == Rank.Joker)
+            if (card.Rank == Rank.Joker)
             {
-                if (NextRank(NextRank(card.Rank)) == leftRank) return true;
-                return false;
+                if (leftRank != Rank.Joker) return true;
             }
             else
             {
-                if (NextRank(card.Rank) == leftRank) return true;
-                return false;
+                if (leftRank == Rank.Joker)
+                {
+                    leftRank = meld.Cards[1].Rank;
+                    if (NextRank(NextRank(card.Rank)) == leftRank) return true;
+                }
+                else
+                {
+                    if(NextRank(card.Rank) == leftRank) return true;
+                }
             }
-
         }
         if (side == MeldSide.Right)
         {
             Rank rightRank = meld.Cards[meld.Cards.Count - 1].Rank;
-            if (card.Rank == Rank.Joker && rightRank == Rank.Joker) return false;
-
-            if (rightRank == Rank.Joker)
+            if (card.Rank == Rank.Joker)
             {
-                rightRank = meld.Cards[meld.Cards.Count - 2].Rank;
-                if (NextRank(NextRank(rightRank)) == card.Rank) return true;
-                return false;
+                if (rightRank != Rank.Joker) return true;
             }
             else
             {
-                if (NextRank(rightRank) == card.Rank) return true;
-                return false;
+                if (rightRank == Rank.Joker)
+                {
+                    rightRank = meld.Cards[meld.Cards.Count - 2].Rank;
+                    if (NextRank(NextRank(rightRank)) == card.Rank) return true;
+                }
+                else
+                {
+                    if (NextRank(rightRank) == card.Rank) return true;
+                }
             }
         }
         return false;

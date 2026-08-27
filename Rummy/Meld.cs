@@ -19,6 +19,7 @@ public class Meld
 		if (Type == MeldType.Set && side == null)
 		{
 			_cardsInMeld.Add(card);
+			return true;
 		}
 		if (Type == MeldType.Straight && side != null)
 		{
