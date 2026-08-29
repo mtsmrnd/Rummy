@@ -1,4 +1,6 @@
-﻿namespace Rummy;
+﻿using System.Runtime.InteropServices;
+
+namespace Rummy;
 
 public class Game
 {
@@ -184,9 +186,8 @@ public class Game
         {
             if (cardsInMeld.Count != 3) return null;
             if (IsValidSet(cards)) return new Meld(MeldType.Set, CurrentPlayer, cardsInMeld);
-            return null;
         }
-        else if (type == MeldType.Straight)
+        if (type == MeldType.Straight)
         {
             if (cardsInMeld.Count == 4 || cardsInMeld.Count == 13)
             {
@@ -194,11 +195,9 @@ public class Game
                 {
                     return new Meld(MeldType.Straight, CurrentPlayer, cardsInMeld);
                 }
-                return null;
             }
-            return null;
         }
-        else return null;
+        return null;
     }
 
     private void PlayMeld(Meld meld)
@@ -437,6 +436,7 @@ public class Game
             PlayMeld(meld);
         }
         CurrentPlayer.CompleteObjective();
+        EndPlayPhase();
     }
 
     private bool CheckCardsInHand(IEnumerable<Card> cards)

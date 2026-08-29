@@ -494,10 +494,50 @@ public class GameTests
         game.EndPlayPhase();
         Card cardToDiscard = game.CurrentPlayer.Hand.Cards[0];
         game.DiscardFromHand(cardToDiscard);
-        int oldDiscardPileCount = game.DiscardPile.Count;
-        int handCount = game.CurrentPlayer.Hand.Count;
         game.DrawFromDiscardPile();
         Assert.Throws<InvalidOperationException>(() => game.DrawFromDiscardPile());
+    }
+
+    [Fact]
+    public void TryPlayObjective_PlaysMelds_AdvancesPhase()
+    {
+        Game game = new Game();
+        game.DrawFromDeck();
+        Player playerToCheck = game.CurrentPlayer;
+        Round currentRound = game.CurrentRound;
+        
+        Card card1 = new Card(Rank.Ace, Suit.Club);
+        Card card2 = new Card(Rank.Ace, Suit.Spade);
+        Card card3 = new Card(Rank.Ace, Suit.Diamond);
+        Card card4 = new Card(Rank.Queen, Suit.Club);
+        Card card5 = new Card(Rank.Queen, Suit.Spade);
+        Card card6 = new Card(Rank.Queen, Suit.Diamond);
+        Card card7 = new Card(Rank.Joker, Suit.Joker);
+
+        playerToCheck.Hand.ClearHand();
+        playerToCheck.Hand.AddCard(card1);
+        playerToCheck.Hand.AddCard(card2);
+        playerToCheck.Hand.AddCard(card3);
+        playerToCheck.Hand.AddCard(card4);
+        playerToCheck.Hand.AddCard(card5);
+        playerToCheck.Hand.AddCard(card6);
+        playerToCheck.Hand.AddCard(card7);
+
+        int cardsInHand = playerToCheck.Hand.Count;
+        int meldsInRound = currentRound.Melds.Count;
+        
+        Meld candidate1 = new Meld(MeldType.Set, playerToCheck, new List<Card>{card1, card2, card3});
+        Meld candidate2 = new Meld(MeldType.Set, playerToCheck, new List<Card>{card4, card5, card6});
+        game.TryPlayObjective(new List<Meld>{candidate1, candidate2});
+
+        Assert.Contains(candidate1, currentRound.Melds);
+        Assert.Contains(candidate2, currentRound.Melds);
+
+        Assert.Equal(TurnPhase.Discard, game.CurrentTurnPhase);
+        Assert.Equal(cardsInHand-6, playerToCheck.Hand.Count);
+        Assert.Equal(meldsInRound+2, currentRound.Melds.Count);
+        Assert.Equal(card7, playerToCheck.Hand.Cards[0]);
+        Assert.Equal(ObjectiveStatus.CompletedThisTurn, playerToCheck.Status);
     }
 
     

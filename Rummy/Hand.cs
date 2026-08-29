@@ -36,4 +36,13 @@ public class Hand
 		}
 		return hand.ToString();
 	}
+
+	public void MoveCard(int fromIndex, int toIndex)
+	{
+		int count = _cardsInHand.Count;
+		if (toIndex >= count || toIndex < 0 || fromIndex >= count || fromIndex < 0 ) throw new ArgumentOutOfRangeException("Move card needs a valid index / hand is empty"); //throw exception?
+		Card movedCard = _cardsInHand[fromIndex];
+		_cardsInHand.RemoveAt(fromIndex);
+		_cardsInHand.Insert(toIndex, movedCard);
+	}
 }
