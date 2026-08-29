@@ -178,14 +178,16 @@ public class Game
         _discardPile.Clear();
     }
 
-    private Meld? CreateMeldIfValid(MeldType type, IEnumerable<Card> cards)
+    public Meld? CreateMeldIfValid(Player meldOwner, MeldType type, IEnumerable<Card> cards)
     {
         List<Card> cardsInMeld = new List<Card>(cards);
+        if(!CheckCardsInHand(meldOwner, cardsInMeld)) return null;
+        if (CheckDuplicateCardUse(cardsInMeld)) return null;
         //Logic check if meld is valid
         if (type == MeldType.Set)
         {
             if (cardsInMeld.Count != 3) return null;
-            if (IsValidSet(cards)) return new Meld(MeldType.Set, CurrentPlayer, cardsInMeld);
+            if (IsValidSet(cardsInMeld)) return new Meld(MeldType.Set, meldOwner, cardsInMeld);
         }
         if (type == MeldType.Straight)
         {
@@ -193,7 +195,7 @@ public class Game
             {
                 if (IsValidStraight(cardsInMeld))
                 {
-                    return new Meld(MeldType.Straight, CurrentPlayer, cardsInMeld);
+                    return new Meld(MeldType.Straight, meldOwner, cardsInMeld);
                 }
             }
         }
@@ -258,8 +260,7 @@ public class Game
             return IsValidStraight13(cardsInStraight);
         }
     }
-
-
+    
     private Rank NextRank(Rank rank)
     {
         return rank switch
@@ -419,16 +420,15 @@ public class Game
         if (CurrentPlayer.Status != ObjectiveStatus.NotCompleted) return;
         if (!ValidateMeldRequirements(CurrentRound.MeldRequirements, candidateMelds)) return;
 
-        HashSet<Card> cardsInHandSet = new HashSet<Card>();
+        var duplicateCheck = new HashSet<Card>();
         List<Meld> candidateMeldList = new List<Meld>(candidateMelds);
         foreach (Meld meld in candidateMeldList)
         {
             foreach (Card card in meld.Cards)
             {
-                bool test = cardsInHandSet.Add(card);
-                if (!test) return;
+                if (!duplicateCheck.Add(card)) return;
             }
-            if (!CheckCardsInHand(meld.Cards)) return;
+            if (!CheckCardsInHand(CurrentPlayer, meld.Cards)) return;
         }
         foreach (Meld meld in candidateMeldList)
         {
@@ -438,12 +438,23 @@ public class Game
         CurrentPlayer.CompleteObjective();
         EndPlayPhase();
     }
+    
+    private bool CheckDuplicateCardUse(IEnumerable<Card> cards)
+    {
+        var cardsInSet = new HashSet<Card>();
+        foreach (Card card in cards)
+        {
+            if (!cardsInSet.Add(card)) return true;
+        }
 
-    private bool CheckCardsInHand(IEnumerable<Card> cards)
+        return false;
+    }
+    
+    private bool CheckCardsInHand(Player cardOwner, IEnumerable<Card> cards)
     {
         foreach (Card card in cards)
         {
-            if (!CurrentPlayer.Hand.Cards.Contains(card)) return false;
+            if (!cardOwner.Hand.Cards.Contains(card)) return false;
         }
         return true;
     }
@@ -452,7 +463,7 @@ public class Game
     {
         if (CurrentTurnPhase != TurnPhase.Play) return;
         if (CurrentPlayer.Status != ObjectiveStatus.Active) return;
-        if (!CheckCardsInHand(new List<Card> { card })) return;
+        if (!CheckCardsInHand(CurrentPlayer, new List<Card> { card })) return;
         if (meld.Type == MeldType.Set)
         {
             if (ValidateSetExtension(card, meld))

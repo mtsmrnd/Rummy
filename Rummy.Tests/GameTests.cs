@@ -540,6 +540,192 @@ public class GameTests
         Assert.Equal(ObjectiveStatus.CompletedThisTurn, playerToCheck.Status);
     }
 
+    [Fact]
+    public void CreateMeldIfValid_DuplicateUse_Rejected()
+    {
+        Game game = new Game();
+        game.CurrentPlayer.Hand.ClearHand();
+        var card1 = new Card(Rank.Ace, Suit.Club);
+        game.CurrentPlayer.Hand.AddCard(card1);
+        
+        var meld = game.CreateMeldIfValid(game.CurrentPlayer, MeldType.Set, new List<Card> { card1, card1, card1 });
+        Assert.Null(meld);
+    }
+    [Fact]
+    public void CreateMeldIfValid_SameCardDifferentObject_Accepted()
+    {
+        Game game = new Game();
+        game.CurrentPlayer.Hand.ClearHand();
+        var card1 = new Card(Rank.Ace, Suit.Club);
+        var card2 = new Card(Rank.Ace, Suit.Club);
+        var card3 = new Card(Rank.Ace, Suit.Club);
+
+        game.CurrentPlayer.Hand.AddCard(card1);
+        game.CurrentPlayer.Hand.AddCard(card2);
+        game.CurrentPlayer.Hand.AddCard(card3);
+        
+        var meld = game.CreateMeldIfValid(game.CurrentPlayer, MeldType.Set, new List<Card> { card1, card2, card3 });
+        Assert.NotNull(meld);
+    }
+    [Fact]
+    public void TryPlayObjective_DuplicateInDifferentMeld_Rejected()
+    {
+        Game game = new Game();
+        Player player = game.CurrentPlayer;
+        game.DrawFromDeck();
+        player.Hand.ClearHand();
+        var card1 = new Card(Rank.Ace, Suit.Club);
+        var card2 = new Card(Rank.Ace, Suit.Club);
+        var card3 = new Card(Rank.Ace, Suit.Club);
+        var card4 = new Card(Rank.Ace, Suit.Club);
+        var card5 = new Card(Rank.Ace, Suit.Club);
+        
+        player.Hand.AddCard(card1);
+        player.Hand.AddCard(card2);
+        player.Hand.AddCard(card3);
+        player.Hand.AddCard(card4);
+        player.Hand.AddCard(card5);
+
+        int handCount = player.Hand.Count;
+        var phase = game.CurrentTurnPhase;
+        int meldCount = game.CurrentRound.Melds.Count;
+        var status = player.Status;
+
+        var meld1 = game.CreateMeldIfValid(player, MeldType.Set, new List<Card> { card1, card2, card3 });
+        var meld2 = game.CreateMeldIfValid(player, MeldType.Set, new List<Card> { card1, card4, card5 });
+
+        game.TryPlayObjective(new List<Meld>{meld1, meld2});
+
+        Assert.NotNull(meld1);
+        Assert.NotNull(meld2);
+        Assert.Equal(handCount, player.Hand.Count);
+        Assert.Equal(phase, game.CurrentTurnPhase);
+        Assert.Equal(status, player.Status);
+        Assert.Equal(meldCount, game.CurrentRound.Melds.Count);
+
+    }
+    
+    [Fact]
+    public void CreateMeldIfValid_ForNonCurrentPlayer_ValidCards_Accepted()
+    {
+        Game game = new Game();
+        Player player = game.CurrentPlayer;
+        game.DrawFromDeck();
+        game.CurrentPlayer.Hand.ClearHand();
+        var card1 = new Card(Rank.Ace, Suit.Club);
+        var card2 = new Card(Rank.Ace, Suit.Club);
+        var card3 = new Card(Rank.Ace, Suit.Club);
+        var card4 = new Card(Rank.Ace, Suit.Club);
+
+        game.CurrentPlayer.Hand.AddCard(card1);
+        game.CurrentPlayer.Hand.AddCard(card2);
+        game.CurrentPlayer.Hand.AddCard(card3);
+        game.CurrentPlayer.Hand.AddCard(card4);
+        game.EndPlayPhase();
+        game.DiscardFromHand(card4);
+        
+        var meld = game.CreateMeldIfValid(player, MeldType.Set, new List<Card> { card1, card2, card3 });
+        Assert.NotNull(meld);
+        Assert.NotEqual(player, game.CurrentPlayer);
+    }
+    [Fact]
+    public void CreateMeldIfValid_CardsFromOtherPlayer_Rejected()
+    {
+        Game game = new Game();
+        Player player1 = game.Players[0];
+        Player player2 = game.Players[1];
+
+        player1.Hand.ClearHand();
+        player2.Hand.ClearHand();
+
+        var card1 = new Card(Rank.Ace, Suit.Club);
+        var card2 = new Card(Rank.Ace, Suit.Club);
+        var card3 = new Card(Rank.Ace, Suit.Club);
+        
+        player1.Hand.AddCard(card1);
+        player1.Hand.AddCard(card2);
+        player1.Hand.AddCard(card3);
+        
+        var meld = game.CreateMeldIfValid(player2, MeldType.Set, new List<Card> { card1, card2, card3 });
+        Assert.Null(meld);
+    }
+    [Fact]
+    public void CreateMeldIfValid_Straight_Accepted()
+    {
+        Game game = new Game();
+        Player player1 = game.Players[0];
+
+        player1.Hand.ClearHand();
+        
+        var card1 = new Card(Rank.Ace, Suit.Club);
+        var card2 = new Card(Rank.Two, Suit.Club);
+        var card3 = new Card(Rank.Three, Suit.Club);
+        var card4 = new Card(Rank.Four, Suit.Club);
+        
+        player1.Hand.AddCard(card1);
+        player1.Hand.AddCard(card2);
+        player1.Hand.AddCard(card3);
+        player1.Hand.AddCard(card4);
+
+        var candidateMeld = new List<Card> { card1, card2, card3, card4 };
+        
+        var meld = game.CreateMeldIfValid(player1, MeldType.Straight, candidateMeld);
+        Assert.NotNull(meld);
+        Assert.Equal(candidateMeld, player1.Hand.Cards);
+        Assert.Equal(candidateMeld, meld.Cards);
+        Assert.Equal(player1, meld.Owner);
+        Assert.Equal(MeldType.Straight, meld.Type);
+    }    
+    [Fact]
+    public void CreateMeldIfValid_Straight_WrongSuit_Rejected()
+    {
+        Game game = new Game();
+        Player player1 = game.Players[0];
+
+        player1.Hand.ClearHand();
+        
+        var card1 = new Card(Rank.Ace, Suit.Club);
+        var card2 = new Card(Rank.Two, Suit.Club);
+        var card3 = new Card(Rank.Three, Suit.Heart);
+        var card4 = new Card(Rank.Four, Suit.Club);
+        
+        player1.Hand.AddCard(card1);
+        player1.Hand.AddCard(card2);
+        player1.Hand.AddCard(card3);
+        player1.Hand.AddCard(card4);
+
+        int handCount = player1.Hand.Count;
+        var candidateMeld = new List<Card> { card1, card2, card3, card4 };
+        
+        var meld = game.CreateMeldIfValid(player1, MeldType.Straight, candidateMeld);
+        Assert.Null(meld);
+        Assert.Equal(handCount, player1.Hand.Count);
+    }
+
+    [Fact]
+    public void test()
+    {
+        Game game = new Game();
+        Player player1 = game.Players[0];
+
+        player1.Hand.ClearHand();
+        
+        var card1 = new Card(Rank.Ace, Suit.Club);
+        var card2 = new Card(Rank.Two, Suit.Club);
+        var card3 = new Card(Rank.Three, Suit.Club);
+        var card4 = new Card(Rank.Four, Suit.Club);
+        
+        player1.Hand.AddCard(card1);
+        player1.Hand.AddCard(card2);
+        player1.Hand.AddCard(card3);
+        player1.Hand.AddCard(card4);
+
+        var candidateMeld = new List<Card> { card4, card2, card3, card1 };
+        
+        var meld = game.CreateMeldIfValid(player1, MeldType.Straight, candidateMeld);
+        Assert.Equal(card1, meld.Cards[3]);
+    }
+
     
 
 }

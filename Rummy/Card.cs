@@ -35,10 +35,7 @@ public class Card
         {
             return $"{Rank}";
         }
-        else
-        {
-            return $"{Rank} of {Suit}";
-        }
+        return $"{Rank} of {Suit}";
     }
 
 }
