@@ -28,7 +28,7 @@ public class CardTests
     {
         Card card = new Card(Rank.Ace, Suit.Heart);
         Card card2 = new Card(Rank.Joker, Suit.Joker);
-        Assert.Equal("Ace of Heart", card.ToString());
+        Assert.Equal("A♥", card.ToString());
         Assert.Equal("Joker", card2.ToString());
     }
 

@@ -38,10 +38,10 @@ public class Game
     public Game()
     {
         //Player creation
-        Player player1 = new Player("player1");
-        Player player2 = new Player("player2");
-        Player player3 = new Player("player3");
-        Player player4 = new Player("player4");
+        Player player1 = new Player("Player 1");
+        Player player2 = new Player("Player 2");
+        Player player3 = new Player("Player 3");
+        Player player4 = new Player("Player 4");
         _players.Add(player1);
         _players.Add(player2);
         _players.Add(player3);
