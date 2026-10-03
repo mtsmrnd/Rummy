@@ -701,31 +701,76 @@ public class GameTests
         Assert.Null(meld);
         Assert.Equal(handCount, player1.Hand.Count);
     }
-
     [Fact]
-    public void test()
+    public void EndRound_AfterRoundOne_AdvancesToRoundTwoAndAwardsPoints()
     {
-        Game game = new Game();
-        Player player1 = game.Players[0];
+        var game = new Game();
+        
+        game.DrawFromDeck();
 
-        player1.Hand.ClearHand();
+        var roundOne = game.CurrentRound;
+        var winner = game.CurrentPlayer;
         
-        var card1 = new Card(Rank.Ace, Suit.Club);
-        var card2 = new Card(Rank.Two, Suit.Club);
-        var card3 = new Card(Rank.Three, Suit.Club);
-        var card4 = new Card(Rank.Four, Suit.Club);
+        winner.Hand.ClearHand();
         
-        player1.Hand.AddCard(card1);
-        player1.Hand.AddCard(card2);
-        player1.Hand.AddCard(card3);
-        player1.Hand.AddCard(card4);
+        var expectedPoints = game.Players.ToDictionary(
+            player => player,
+            player => player.Points + player.Hand.GetHandValue()
+        );
 
-        var candidateMeld = new List<Card> { card4, card2, card3, card1 };
-        
-        var meld = game.CreateMeldIfValid(player1, MeldType.Straight, candidateMeld);
-        Assert.Equal(card1, meld.Cards[3]);
+        game.EndPlayPhase();
+
+        Assert.Equal(winner, roundOne.Winner);
+
+        foreach (var player in game.Players)
+        {
+            Assert.Equal(expectedPoints[player], player.Points);
+        }
+
+        Assert.Equal(2, game.CurrentRound.RoundNumber);
+        Assert.False(game.IsGameOver);
+        Assert.Equal(TurnPhase.Draw, game.CurrentTurnPhase);
     }
-
     
+    [Fact]
+    public void EndRound_AfterFinalRound_EndsGameAndDoesNotDealNewHands()
+    {
+        var game = new Game();
 
+        game.DrawFromDeck();
+        game.CurrentPlayer.Hand.ClearHand();
+        game.EndPlayPhase();
+
+        Assert.Equal(2, game.CurrentRound.RoundNumber);
+        
+        game.DrawFromDeck();
+
+        var roundTwo = game.CurrentRound;
+        var winner = game.CurrentPlayer;
+
+        winner.Hand.ClearHand();
+
+        var expectedPoints = game.Players.ToDictionary(
+            player => player,
+            player => player.Points + player.Hand.GetHandValue()
+        );
+        
+        var handsBeforeGameEnd = game.Players.ToDictionary(
+            player => player,
+            player => player.Hand.Cards.ToList()
+        );
+
+        game.EndPlayPhase();
+
+        Assert.Equal(winner, roundTwo.Winner);
+
+        foreach (var player in game.Players)
+        {
+            Assert.Equal(expectedPoints[player], player.Points);
+            Assert.Equal(handsBeforeGameEnd[player], player.Hand.Cards);
+        }
+
+        Assert.Same(roundTwo, game.CurrentRound);
+        Assert.True(game.IsGameOver);
+    }
 }

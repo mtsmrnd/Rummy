@@ -29,6 +29,7 @@ public class Game
     public IReadOnlyList<Round> Rounds => _rounds;
     private int _currentRoundIndex = 0;
     public Round CurrentRound => _rounds[_currentRoundIndex];
+    public bool IsGameOver { get; private set; }
 
     public Game()
     {
@@ -53,7 +54,7 @@ public class Game
 
     private void AdvanceTurn()
     {
-        _currentPlayerIndex = (_currentPlayerIndex + 1) % 4;
+        _currentPlayerIndex = (_currentPlayerIndex + 1) % _players.Count;
         _currentTurnPhase = TurnPhase.Draw;
     }
 
@@ -122,13 +123,12 @@ public class Game
         }
         if (_currentRoundIndex == _rounds.Count - 1)
         {
-            //END GAME
+            IsGameOver = true;
+            return;
         }
-        else
-        {
-            //I know the else is not needed, but i need it now that i dont have an endgame logic inplace
-            _currentRoundIndex = (_currentRoundIndex + 1) % _rounds.Count;
-        }
+
+        _currentRoundIndex += 1;
+
         BeginRound();
     }
 
@@ -154,7 +154,7 @@ public class Game
         //new starting player? Only if not first round
         if (_currentRoundIndex != 0)
         {
-            _roundStartingPlayerIndex = (_roundStartingPlayerIndex + 1) % 4;
+            _roundStartingPlayerIndex = (_roundStartingPlayerIndex + 1) % Players.Count;
             _currentPlayerIndex = _roundStartingPlayerIndex;
         }
         //new hands
@@ -162,7 +162,7 @@ public class Game
         //discard first card of the deck
         _discardPile.Push(Deck.DrawCard());
         //Begin game
-        foreach (Player player in Players)
+        foreach (var player in Players)
         {
             player.ResetObjective();
         }
