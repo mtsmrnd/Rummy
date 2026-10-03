@@ -29,8 +29,12 @@ public class Game
     public IReadOnlyList<Round> Rounds => _rounds;
     private int _currentRoundIndex = 0;
     public Round CurrentRound => _rounds[_currentRoundIndex];
+    
+    //---
     public bool IsGameOver { get; private set; }
-
+    public IReadOnlyList<Player> FinalStandings => Players.OrderBy(player => player.Points).ToList();
+    
+    
     public Game()
     {
         //Player creation

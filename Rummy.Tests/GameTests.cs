@@ -795,4 +795,25 @@ public class GameTests
 
         Assert.Equal("Game is Over", exception.Message);
     }
+    
+    [Fact]
+    public void Standings_OrdersPlayersByLowestPoints()
+    {
+        var game = new Game();
+
+        var player1 = game.Players[0];
+        var player2 = game.Players[1];
+        var player3 = game.Players[2];
+        var player4 = game.Players[3];
+
+        player1.AddPoints(40);
+        player2.AddPoints(10);
+        player3.AddPoints(30);
+        player4.AddPoints(20);
+
+        Assert.Equal(
+            new List<Player> { player2, player4, player3, player1 },
+            game.FinalStandings
+        );
+    }
 }
