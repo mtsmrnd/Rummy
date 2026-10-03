@@ -105,4 +105,27 @@ public class HandTests
         hand.AddCard(card3);
         Assert.Throws<ArgumentOutOfRangeException>(() => hand.MoveCard(3, 0));
     }
+
+    [Fact]
+    public void GetHandValueEmpty_EqualsZero()
+    {
+        Hand hand = new Hand();
+        
+        Assert.Equal(0, hand.GetHandValue());
+    }
+    [Fact]
+    public void GetHandValueTest()
+    {
+        Hand hand = new Hand();
+        Card card1 = new Card(Rank.Ace, Suit.Club);
+        Card card2 = new Card(Rank.Joker, Suit.Joker);
+        Card card3 = new Card(Rank.Two, Suit.Club);
+        Card card4 = new Card(Rank.King, Suit.Club);
+
+        hand.AddCard(card1);
+        hand.AddCard(card2);
+        hand.AddCard(card3);
+        hand.AddCard(card4);
+        Assert.Equal(62, hand.GetHandValue());
+    }
 }

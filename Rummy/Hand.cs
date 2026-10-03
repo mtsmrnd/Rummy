@@ -45,4 +45,15 @@ public class Hand
 		_cardsInHand.RemoveAt(fromIndex);
 		_cardsInHand.Insert(toIndex, movedCard);
 	}
+
+	public int GetHandValue()
+	{
+		int count = 0;
+		foreach (Card card in _cardsInHand)
+		{
+			count += card.Value;
+		}
+
+		return count;
+	}
 }

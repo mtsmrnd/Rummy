@@ -43,7 +43,7 @@ public class Game
         _players.Add(player4);
         //Round creation
         Round round1 = new Round(1, new List<MeldRequirement> { new MeldRequirement(MeldType.Set, 3), new MeldRequirement(MeldType.Set, 3) });
-        Round round2 = new Round(1, new List<MeldRequirement> { new MeldRequirement(MeldType.Set, 3), new MeldRequirement(MeldType.Straight, 4) });
+        Round round2 = new Round(2, new List<MeldRequirement> { new MeldRequirement(MeldType.Set, 3), new MeldRequirement(MeldType.Straight, 4) });
         _rounds.Add(round1);
         _rounds.Add(round2);
         //Begin
@@ -116,10 +116,9 @@ public class Game
 
     private void EndRound()
     {
-        for (int i = 0; i < _players.Count; i++)
+        foreach (var player in Players)
         {
-            //PLACEHOLDER, CHECK COUNT OF POINTS, NOT CARDS
-            _players[i].AddPoints(_players[i].Hand.Count);
+            player.AddPoints(player.Hand.GetHandValue());
         }
         if (_currentRoundIndex == _rounds.Count - 1)
         {
