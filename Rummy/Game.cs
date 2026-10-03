@@ -321,53 +321,31 @@ public class Game
 
     private bool IsValidStraight4(IEnumerable<Card> cards)
     {
-        List<Card> cardsInStraight = new List<Card>(cards).OrderBy(card => (int)card.Rank).Where(card => card.Rank != Rank.Joker).ToList();
-        int jokersInStraight = cards.Count(card => card.Rank == Rank.Joker);
+        var cardsInStraight = new List<Card>(cards);
 
-        int cardCount = cardsInStraight.Count;
-
-        for (int i = 0; i < cardCount; i++)
+        foreach (var startingRank in Enum.GetValues<Rank>())
         {
-            int currentIndex = i;
-            bool check = true;
-            int jokersRemaining = jokersInStraight;
+            if (startingRank == Rank.Joker)
+                continue;
 
-            for (int j = 0; j < cardCount - 1; j++)
+            var expectedRank = startingRank;
+            var isValid = true;
+
+            foreach (var card in cardsInStraight)
             {
-                int nextIndex = (currentIndex + 1) % cardCount;
-
-                if (NextRank(cardsInStraight[currentIndex].Rank) == cardsInStraight[nextIndex].Rank)
+                if (card.Rank != Rank.Joker && card.Rank != expectedRank)
                 {
-                    currentIndex = nextIndex;
-                }
-                else
-                {
-                    if (jokersRemaining > 0)
-                    {
-                        if (NextRank(NextRank(cardsInStraight[currentIndex].Rank)) == cardsInStraight[nextIndex].Rank)
-                        {
-                                jokersRemaining--;
-                                currentIndex = nextIndex;
-                        }
-                        else
-                        {
-                            check = false;
-                            break;
-                        }
-                    }
-                    else
-                    {
-                        check = false;
-                        break;
-                    }
+                    isValid = false;
+                    break;
                 }
 
+                expectedRank = NextRank(expectedRank);
             }
-            if (check)
-            {
+
+            if (isValid)
                 return true;
-            }
         }
+
         return false;
     }
 

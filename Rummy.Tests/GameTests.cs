@@ -816,4 +816,76 @@ public class GameTests
             game.FinalStandings
         );
     }
+    [Fact]
+    public void CreateMeldIfValid_StraightInInvalidOrder_Rejected()
+    {
+        var game = new Game();
+        var player = game.Players[0];
+
+        player.Hand.ClearHand();
+
+        var card1 = new Card(Rank.Ace, Suit.Club);
+        var card2 = new Card(Rank.Two, Suit.Club);
+        var card3 = new Card(Rank.Three, Suit.Club);
+        var card4 = new Card(Rank.Four, Suit.Club);
+
+        player.Hand.AddCard(card1);
+        player.Hand.AddCard(card2);
+        player.Hand.AddCard(card3);
+        player.Hand.AddCard(card4);
+
+        var meld = game.CreateMeldIfValid(
+            player,
+            MeldType.Straight,
+            new List<Card> { card4, card2, card3, card1 }
+        );
+
+        Assert.Null(meld);
+    }
+    [Fact]
+    public void CreateMeldIfValid_Straight_JokerAtStart_AcceptedAndOrderPreserved()
+    {
+        var game = new Game();
+        var player = game.Players[0];
+
+        player.Hand.ClearHand();
+
+        var joker = new Card(Rank.Joker, Suit.Joker);
+        var two = new Card(Rank.Two, Suit.Club);
+        var three = new Card(Rank.Three, Suit.Club);
+        var four = new Card(Rank.Four, Suit.Club);
+
+        foreach (var card in new[] { joker, two, three, four })
+            player.Hand.AddCard(card);
+
+        var candidate = new List<Card> { joker, two, three, four };
+
+        var meld = game.CreateMeldIfValid(player, MeldType.Straight, candidate);
+
+        Assert.NotNull(meld);
+        Assert.Equal(candidate, meld.Cards);
+    }
+    [Fact]
+    public void CreateMeldIfValid_Straight_JokerAtEnd_AcceptedAndOrderPreserved()
+    {
+        var game = new Game();
+        var player = game.Players[0];
+
+        player.Hand.ClearHand();
+
+        var two = new Card(Rank.Two, Suit.Club);
+        var three = new Card(Rank.Three, Suit.Club);
+        var four = new Card(Rank.Four, Suit.Club);
+        var joker = new Card(Rank.Joker, Suit.Joker);
+
+        foreach (var card in new[] { two, three, four, joker })
+            player.Hand.AddCard(card);
+
+        var candidate = new List<Card> { two, three, four, joker };
+
+        var meld = game.CreateMeldIfValid(player, MeldType.Straight, candidate);
+
+        Assert.NotNull(meld);
+        Assert.Equal(candidate, meld.Cards);
+    }
 }
