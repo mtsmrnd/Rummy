@@ -813,7 +813,7 @@ public class GameTests
 
         Assert.Equal(
             new List<Player> { player2, player4, player3, player1 },
-            game.FinalStandings
+            game.Standings
         );
     }
     [Fact]

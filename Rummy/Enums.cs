@@ -34,12 +34,6 @@ public enum TurnPhase
     Discard
 }
 
-public enum RoundObjective
-{
-    Obj1,
-    Obj2
-}
-
 public enum MeldType
 {
     Set,

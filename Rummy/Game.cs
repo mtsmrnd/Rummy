@@ -1,43 +1,34 @@
-﻿using System.Runtime.InteropServices;
-
-namespace Rummy;
+﻿namespace Rummy;
 
 public class Game
 {
     public Deck Deck { get; private set; }
 
-    //---
+    // ----- Game state -----
     private List<Player> _players = new List<Player>();
     public IReadOnlyList<Player> Players => _players;
 
-    //---
     private Stack<Card> _discardPile = new Stack<Card>();
     public IReadOnlyCollection<Card> DiscardPile => _discardPile;
     public Card TopDiscard => _discardPile.Peek();
 
-    //---
     private int _currentPlayerIndex = Random.Shared.Next(0, 4);
     public Player CurrentPlayer => _players[_currentPlayerIndex];
     private int _roundStartingPlayerIndex;
 
-    //---
     private TurnPhase _currentTurnPhase;
     public TurnPhase CurrentTurnPhase => _currentTurnPhase;
 
-    //---
     private List<Round> _rounds = new List<Round>();
     public IReadOnlyList<Round> Rounds => _rounds;
     private int _currentRoundIndex = 0;
     public Round CurrentRound => _rounds[_currentRoundIndex];
-    
-    //---
+
     public bool IsGameOver { get; private set; }
-    public IReadOnlyList<Player> FinalStandings => Players.OrderBy(player => player.Points).ToList();
-    
-    
+    public IReadOnlyList<Player> Standings => Players.OrderBy(player => player.Points).ToList();
+
     public Game()
     {
-        //Player creation
         Player player1 = new Player("Player 1");
         Player player2 = new Player("Player 2");
         Player player3 = new Player("Player 3");
@@ -46,22 +37,31 @@ public class Game
         _players.Add(player2);
         _players.Add(player3);
         _players.Add(player4);
-        //Round creation
-        Round round1 = new Round(1, new List<MeldRequirement> { new MeldRequirement(MeldType.Set, 3), new MeldRequirement(MeldType.Set, 3) });
-        Round round2 = new Round(2, new List<MeldRequirement> { new MeldRequirement(MeldType.Set, 3), new MeldRequirement(MeldType.Straight, 4) });
+
+        Round round1 = new Round(
+            1,
+            new List<MeldRequirement>
+            {
+                new MeldRequirement(MeldType.Set, 3),
+                new MeldRequirement(MeldType.Set, 3),
+            }
+        );
+        Round round2 = new Round(
+            2,
+            new List<MeldRequirement>
+            {
+                new MeldRequirement(MeldType.Set, 3),
+                new MeldRequirement(MeldType.Straight, 4),
+            }
+        );
         _rounds.Add(round1);
         _rounds.Add(round2);
-        //Begin
+
         _roundStartingPlayerIndex = _currentPlayerIndex;
         BeginRound();
     }
 
-    private void AdvanceTurn()
-    {
-        _currentPlayerIndex = (_currentPlayerIndex + 1) % _players.Count;
-        _currentTurnPhase = TurnPhase.Draw;
-    }
-
+    // ----- Public game actions -----
     public void DrawFromDeck()
     {
         EnsureGameIsRunning();
@@ -71,7 +71,9 @@ public class Game
         }
         CurrentPlayer.Hand.AddCard(Deck.DrawCard());
         _currentTurnPhase = TurnPhase.Play;
-        if (CurrentPlayer.Status == ObjectiveStatus.CompletedThisTurn) CurrentPlayer.ActivateObjective();
+        //Player can add to other melds on next turn after completing.
+        if (CurrentPlayer.Status == ObjectiveStatus.CompletedThisTurn)
+            CurrentPlayer.ActivateObjective();
     }
 
     public void DrawFromDiscardPile()
@@ -85,7 +87,9 @@ public class Game
             throw new InvalidOperationException("discard pile can't be empty");
         CurrentPlayer.Hand.AddCard(_discardPile.Pop());
         _currentTurnPhase = TurnPhase.Play;
-        if (CurrentPlayer.Status == ObjectiveStatus.CompletedThisTurn) CurrentPlayer.ActivateObjective();
+        //Player can add to other melds on next turn after completing.
+        if (CurrentPlayer.Status == ObjectiveStatus.CompletedThisTurn)
+            CurrentPlayer.ActivateObjective();
     }
 
     public void EndPlayPhase()
@@ -96,7 +100,6 @@ public class Game
         if (CheckIfWinner())
         {
             CurrentRound.SetWinner(CurrentPlayer);
-            //move to ending of round
             EndRound();
             return;
         }
@@ -114,11 +117,105 @@ public class Game
         if (CheckIfWinner())
         {
             CurrentRound.SetWinner(CurrentPlayer);
-            //move to ending of round
             EndRound();
             return;
         }
         AdvanceTurn();
+    }
+
+    public Meld? CreateMeldIfValid(Player meldOwner, MeldType type, IEnumerable<Card> cards)
+    {
+        List<Card> cardsInMeld = new List<Card>(cards);
+        if (!CheckCardsInHand(meldOwner, cardsInMeld))
+            return null;
+        if (CheckDuplicateCardUse(cardsInMeld))
+            return null;
+        if (type == MeldType.Set)
+        {
+            if (cardsInMeld.Count != 3)
+                return null;
+            if (IsValidSet(cardsInMeld))
+                return new Meld(MeldType.Set, meldOwner, cardsInMeld);
+        }
+        if (type == MeldType.Straight)
+        {
+            if (cardsInMeld.Count == 4 || cardsInMeld.Count == 13)
+            {
+                if (IsValidStraight(cardsInMeld))
+                {
+                    return new Meld(MeldType.Straight, meldOwner, cardsInMeld);
+                }
+            }
+        }
+        return null;
+    }
+
+    public void TryPlayObjective(IEnumerable<Meld> candidateMelds)
+    {
+        EnsureGameIsRunning();
+        if (CurrentTurnPhase != TurnPhase.Play)
+            return;
+        if (CurrentPlayer.Status != ObjectiveStatus.NotCompleted)
+            return;
+        if (!ValidateMeldRequirements(CurrentRound.MeldRequirements, candidateMelds))
+            return;
+
+        var duplicateCheck = new HashSet<Card>();
+        List<Meld> candidateMeldList = new List<Meld>(candidateMelds);
+        foreach (Meld meld in candidateMeldList)
+        {
+            foreach (Card card in meld.Cards)
+            {
+                if (!duplicateCheck.Add(card))
+                    return;
+            }
+            if (!CheckCardsInHand(CurrentPlayer, meld.Cards))
+                return;
+        }
+        foreach (Meld meld in candidateMeldList)
+        {
+            PlayMeld(meld);
+        }
+        CurrentPlayer.CompleteObjective();
+        EndPlayPhase();
+    }
+
+    public void TryExtendMeld(Card card, Meld meld, MeldSide? side)
+    {
+        EnsureGameIsRunning();
+        if (CurrentTurnPhase != TurnPhase.Play)
+            return;
+        if (CurrentPlayer.Status != ObjectiveStatus.Active)
+            return;
+        if (!CheckCardsInHand(CurrentPlayer, new List<Card> { card }))
+            return;
+        if (meld.Type == MeldType.Set)
+        {
+            if (ValidateSetExtension(card, meld))
+            {
+                if (meld.AddCard(card, side))
+                {
+                    CurrentPlayer.Hand.RemoveCard(card);
+                }
+            }
+        }
+        if (meld.Type == MeldType.Straight)
+        {
+            if (ValidateStraightExtension(card, meld, side))
+            {
+                if (meld.AddCard(card, side))
+                {
+                    CurrentPlayer.Hand.RemoveCard(card);
+                }
+            }
+        }
+    }
+
+    // ----- Game and round lifecycle -----
+    private void AdvanceTurn()
+    {
+        _currentPlayerIndex = (_currentPlayerIndex + 1) % _players.Count;
+        _currentTurnPhase = TurnPhase.Draw;
     }
 
     private bool CheckIfWinner() => CurrentPlayer.Hand.Count == 0;
@@ -131,8 +228,27 @@ public class Game
         }
     }
 
+    private void BeginRound()
+    {
+        ResetRoundCards();
+        //Rotate the starting player between rounds, except initial round.
+        if (_currentRoundIndex != 0)
+        {
+            _roundStartingPlayerIndex = (_roundStartingPlayerIndex + 1) % Players.Count;
+            _currentPlayerIndex = _roundStartingPlayerIndex;
+        }
+        DealHands();
+        _discardPile.Push(Deck.DrawCard());
+        foreach (var player in Players)
+        {
+            player.ResetObjective();
+        }
+        _currentTurnPhase = TurnPhase.Draw;
+    }
+
     private void EndRound()
     {
+        //Add score to players based on value of cards remaining in hand. Lowest score wins.
         foreach (var player in Players)
         {
             player.AddPoints(player.Hand.GetHandValue());
@@ -164,27 +280,6 @@ public class Game
         }
     }
 
-    private void BeginRound()
-    {
-        ResetRoundCards();
-        //new starting player? Only if not first round
-        if (_currentRoundIndex != 0)
-        {
-            _roundStartingPlayerIndex = (_roundStartingPlayerIndex + 1) % Players.Count;
-            _currentPlayerIndex = _roundStartingPlayerIndex;
-        }
-        //new hands
-        DealHands();
-        //discard first card of the deck
-        _discardPile.Push(Deck.DrawCard());
-        //Begin game
-        foreach (var player in Players)
-        {
-            player.ResetObjective();
-        }
-        _currentTurnPhase = TurnPhase.Draw;
-    }
-
     private void ResetRoundCards()
     {
         Deck = new Deck(2);
@@ -193,30 +288,7 @@ public class Game
         _discardPile.Clear();
     }
 
-    public Meld? CreateMeldIfValid(Player meldOwner, MeldType type, IEnumerable<Card> cards)
-    {
-        List<Card> cardsInMeld = new List<Card>(cards);
-        if(!CheckCardsInHand(meldOwner, cardsInMeld)) return null;
-        if (CheckDuplicateCardUse(cardsInMeld)) return null;
-        //Logic check if meld is valid
-        if (type == MeldType.Set)
-        {
-            if (cardsInMeld.Count != 3) return null;
-            if (IsValidSet(cardsInMeld)) return new Meld(MeldType.Set, meldOwner, cardsInMeld);
-        }
-        if (type == MeldType.Straight)
-        {
-            if (cardsInMeld.Count == 4 || cardsInMeld.Count == 13)
-            {
-                if (IsValidStraight(cardsInMeld))
-                {
-                    return new Meld(MeldType.Straight, meldOwner, cardsInMeld);
-                }
-            }
-        }
-        return null;
-    }
-
+    // ----- Meld execution -----
     private void PlayMeld(Meld meld)
     {
         foreach (Card card in meld.Cards)
@@ -226,6 +298,7 @@ public class Game
         CurrentRound.AddMeld(meld);
     }
 
+    // ----- Meld validation -----
     private bool IsValidSet(IEnumerable<Card> cards)
     {
         List<Card> cardsInSet = new List<Card>(cards);
@@ -246,7 +319,8 @@ public class Game
             if (expectedRank == null)
             {
                 expectedRank = card.Rank;
-            } else if (expectedRank != card.Rank)
+            }
+            else if (expectedRank != card.Rank)
             {
                 return false;
             }
@@ -258,16 +332,20 @@ public class Game
     {
         List<Card> cardsInStraight = new List<Card>(cards);
         int cardCount = cardsInStraight.Count;
-        if (cardCount != 4 && cardCount != 13) return false;
-        if (!HasSameSuit(cardsInStraight)) return false;
+        if (cardCount != 4 && cardCount != 13)
+            return false;
+        if (!HasSameSuit(cardsInStraight))
+            return false;
         int jokerCount = 0;
         foreach (Card card in cardsInStraight)
         {
-            if (card.Rank == Rank.Joker) jokerCount++;
+            if (card.Rank == Rank.Joker)
+                jokerCount++;
         }
         if (cardCount == 4)
         {
-            if (jokerCount > 1) return false;
+            if (jokerCount > 1)
+                return false;
             return IsValidStraight4(cardsInStraight);
         }
         else
@@ -275,54 +353,12 @@ public class Game
             return IsValidStraight13(cardsInStraight);
         }
     }
-    
-    private Rank NextRank(Rank rank)
-    {
-        return rank switch
-        {
-            Rank.Ace => Rank.Two,
-            Rank.Two => Rank.Three,
-            Rank.Three => Rank.Four,
-            Rank.Four => Rank.Five,
-            Rank.Five => Rank.Six,
-            Rank.Six => Rank.Seven,
-            Rank.Seven => Rank.Eight,
-            Rank.Eight => Rank.Nine,
-            Rank.Nine => Rank.Ten,
-            Rank.Ten => Rank.Jack,
-            Rank.Jack => Rank.Queen,
-            Rank.Queen => Rank.King,
-            Rank.King => Rank.Ace,
-            _ => throw new ArgumentOutOfRangeException("Card Rank is invalid")
-        };
-    }
-
-    private bool HasSameSuit(IEnumerable<Card> cards)
-    {
-        Suit? expectedSuit = null;
-
-        foreach (Card card in cards)
-        {
-            if (card.Suit == Suit.Joker)
-            {
-                continue;
-            }
-            if (expectedSuit == null)
-            {
-                expectedSuit = card.Suit;
-            }
-            else if (expectedSuit != card.Suit)
-            {
-                return false;
-            }
-        }
-        return true;
-    }
 
     private bool IsValidStraight4(IEnumerable<Card> cards)
     {
         var cardsInStraight = new List<Card>(cards);
-
+        // Card order represents player intent, so Joker position is preserved (eg. Joker-2-3-4, 2-3-4-Joker).
+        // Try each possible starting rank without rearranging the candidate cards.
         foreach (var startingRank in Enum.GetValues<Rank>())
         {
             if (startingRank == Rank.Joker)
@@ -351,13 +387,15 @@ public class Game
 
     private bool IsValidStraight13(IEnumerable<Card> cards)
     {
-        List<Card> cardsInStraight = new List<Card>(cards).Where(card => card.Rank != Rank.Joker).ToList();
+        List<Card> cardsInStraight = new List<Card>(cards)
+            .Where(card => card.Rank != Rank.Joker)
+            .ToList();
         int jokersInStraight = cards.Count(card => card.Rank == Rank.Joker);
 
         Dictionary<Rank, bool> dict = new Dictionary<Rank, bool>();
         foreach (Card card in cardsInStraight)
         {
-            if (dict.ContainsKey(card.Rank)) 
+            if (dict.ContainsKey(card.Rank))
             {
                 return false;
             }
@@ -366,13 +404,15 @@ public class Game
         List<Rank> ranksMissing = new List<Rank>();
         foreach (Rank rank in Enum.GetValues<Rank>())
         {
-            if (rank == Rank.Joker) continue;
+            if (rank == Rank.Joker)
+                continue;
             if (!dict.ContainsKey(rank))
             {
                 ranksMissing.Add(rank);
             }
         }
-        if (ranksMissing.Count != jokersInStraight) return false;
+        if (ranksMissing.Count != jokersInStraight)
+            return false;
         foreach (Rank rank in ranksMissing)
         {
             if (ranksMissing.Contains(NextRank(rank)) && rank != Rank.King)
@@ -383,106 +423,42 @@ public class Game
         return true;
     }
 
-    private bool ValidateMeldRequirements(IEnumerable<MeldRequirement> requirements, IEnumerable<Meld> candidates)
+    private bool ValidateMeldRequirements(
+        IEnumerable<MeldRequirement> requirements,
+        IEnumerable<Meld> candidates
+    )
     {
         List<MeldRequirement> pendingRequirements = new List<MeldRequirement>(requirements);
         List<Meld> meldCandidates = new List<Meld>(candidates);
 
-        if (pendingRequirements.Count != meldCandidates.Count) return false;
+        if (pendingRequirements.Count != meldCandidates.Count)
+            return false;
 
         foreach (Meld candidate in candidates)
         {
             bool candidateMatched = false;
             for (int i = 0; i < pendingRequirements.Count; i++)
             {
-                if (candidate.Type == pendingRequirements[i].MeldType && candidate.Cards.Count == pendingRequirements[i].InitialSize)
+                if (
+                    candidate.Type == pendingRequirements[i].MeldType
+                    && candidate.Cards.Count == pendingRequirements[i].InitialSize
+                )
                 {
                     pendingRequirements.RemoveAt(i);
                     candidateMatched = true;
                     break;
                 }
             }
-            if (!candidateMatched) return false;
-        }
-        return true;    
-    }
-
-    public void TryPlayObjective(IEnumerable<Meld> candidateMelds)
-    {
-        EnsureGameIsRunning();
-        if (CurrentTurnPhase != TurnPhase.Play) return;
-        if (CurrentPlayer.Status != ObjectiveStatus.NotCompleted) return;
-        if (!ValidateMeldRequirements(CurrentRound.MeldRequirements, candidateMelds)) return;
-
-        var duplicateCheck = new HashSet<Card>();
-        List<Meld> candidateMeldList = new List<Meld>(candidateMelds);
-        foreach (Meld meld in candidateMeldList)
-        {
-            foreach (Card card in meld.Cards)
-            {
-                if (!duplicateCheck.Add(card)) return;
-            }
-            if (!CheckCardsInHand(CurrentPlayer, meld.Cards)) return;
-        }
-        foreach (Meld meld in candidateMeldList)
-        {
-            // (Add meld to round, remove cards from hand)
-            PlayMeld(meld);
-        }
-        CurrentPlayer.CompleteObjective();
-        EndPlayPhase();
-    }
-    
-    private bool CheckDuplicateCardUse(IEnumerable<Card> cards)
-    {
-        var cardsInSet = new HashSet<Card>();
-        foreach (Card card in cards)
-        {
-            if (!cardsInSet.Add(card)) return true;
-        }
-
-        return false;
-    }
-    
-    private bool CheckCardsInHand(Player cardOwner, IEnumerable<Card> cards)
-    {
-        foreach (Card card in cards)
-        {
-            if (!cardOwner.Hand.Cards.Contains(card)) return false;
+            if (!candidateMatched)
+                return false;
         }
         return true;
     }
 
-    public void TryExtendMeld(Card card, Meld meld, MeldSide? side)
+    private bool ValidateSetExtension(Card card, Meld meld)
     {
-        EnsureGameIsRunning();
-        if (CurrentTurnPhase != TurnPhase.Play) return;
-        if (CurrentPlayer.Status != ObjectiveStatus.Active) return;
-        if (!CheckCardsInHand(CurrentPlayer, new List<Card> { card })) return;
-        if (meld.Type == MeldType.Set)
-        {
-            if (ValidateSetExtension(card, meld))
-            {
-                if (meld.AddCard(card, side))
-                {
-                    CurrentPlayer.Hand.RemoveCard(card);
-                }
-            }
-        }
-        if (meld.Type == MeldType.Straight)
-        {
-            if (ValidateStraightExtension(card, meld, side))
-            {
-                if (meld.AddCard(card, side))
-                {
-                    CurrentPlayer.Hand.RemoveCard(card);
-                }
-            }
-        }
-    }
-
-    private bool ValidateSetExtension(Card card, Meld meld) {
-        if (card.Rank == Rank.Joker) return true;
+        if (card.Rank == Rank.Joker)
+            return true;
 
         Rank? meldRank = null;
 
@@ -499,7 +475,8 @@ public class Game
 
     private bool ValidateStraightExtension(Card card, Meld meld, MeldSide? side)
     {
-        if (side == null) return false;
+        if (side == null)
+            return false;
         Suit? meldSuit = null;
         foreach (Card cardInMeld in meld.Cards)
         {
@@ -509,25 +486,29 @@ public class Game
                 break;
             }
         }
-        if (card.Suit != meldSuit && card.Suit != Suit.Joker) return false;
+        if (card.Suit != meldSuit && card.Suit != Suit.Joker)
+            return false;
 
         if (side == MeldSide.Left)
         {
             Rank leftRank = meld.Cards[0].Rank;
             if (card.Rank == Rank.Joker)
             {
-                if (leftRank != Rank.Joker) return true;
+                if (leftRank != Rank.Joker)
+                    return true;
             }
             else
             {
                 if (leftRank == Rank.Joker)
                 {
                     leftRank = meld.Cards[1].Rank;
-                    if (NextRank(NextRank(card.Rank)) == leftRank) return true;
+                    if (NextRank(NextRank(card.Rank)) == leftRank)
+                        return true;
                 }
                 else
                 {
-                    if(NextRank(card.Rank) == leftRank) return true;
+                    if (NextRank(card.Rank) == leftRank)
+                        return true;
                 }
             }
         }
@@ -536,22 +517,90 @@ public class Game
             Rank rightRank = meld.Cards[meld.Cards.Count - 1].Rank;
             if (card.Rank == Rank.Joker)
             {
-                if (rightRank != Rank.Joker) return true;
+                if (rightRank != Rank.Joker)
+                    return true;
             }
             else
             {
                 if (rightRank == Rank.Joker)
                 {
                     rightRank = meld.Cards[meld.Cards.Count - 2].Rank;
-                    if (NextRank(NextRank(rightRank)) == card.Rank) return true;
+                    if (NextRank(NextRank(rightRank)) == card.Rank)
+                        return true;
                 }
                 else
                 {
-                    if (NextRank(rightRank) == card.Rank) return true;
+                    if (NextRank(rightRank) == card.Rank)
+                        return true;
                 }
             }
         }
         return false;
     }
 
+    // ----- Validation helpers -----
+    private bool CheckDuplicateCardUse(IEnumerable<Card> cards)
+    {
+        var cardsInSet = new HashSet<Card>();
+        foreach (Card card in cards)
+        {
+            if (!cardsInSet.Add(card))
+                return true;
+        }
+
+        return false;
+    }
+
+    private bool CheckCardsInHand(Player cardOwner, IEnumerable<Card> cards)
+    {
+        foreach (Card card in cards)
+        {
+            if (!cardOwner.Hand.Cards.Contains(card))
+                return false;
+        }
+        return true;
+    }
+
+    private bool HasSameSuit(IEnumerable<Card> cards)
+    {
+        Suit? expectedSuit = null;
+
+        foreach (Card card in cards)
+        {
+            if (card.Suit == Suit.Joker)
+            {
+                continue;
+            }
+            if (expectedSuit == null)
+            {
+                expectedSuit = card.Suit;
+            }
+            else if (expectedSuit != card.Suit)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private Rank NextRank(Rank rank)
+    {
+        return rank switch
+        {
+            Rank.Ace => Rank.Two,
+            Rank.Two => Rank.Three,
+            Rank.Three => Rank.Four,
+            Rank.Four => Rank.Five,
+            Rank.Five => Rank.Six,
+            Rank.Six => Rank.Seven,
+            Rank.Seven => Rank.Eight,
+            Rank.Eight => Rank.Nine,
+            Rank.Nine => Rank.Ten,
+            Rank.Ten => Rank.Jack,
+            Rank.Jack => Rank.Queen,
+            Rank.Queen => Rank.King,
+            Rank.King => Rank.Ace,
+            _ => throw new ArgumentOutOfRangeException("Card Rank is invalid"),
+        };
+    }
 }
