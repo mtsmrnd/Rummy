@@ -60,6 +60,7 @@ public class Game
 
     public void DrawFromDeck()
     {
+        EnsureGameIsRunning();
         if (_currentTurnPhase != TurnPhase.Draw)
         {
             throw new InvalidOperationException("You need to be in draw phase to draw a card");
@@ -71,6 +72,7 @@ public class Game
 
     public void DrawFromDiscardPile()
     {
+        EnsureGameIsRunning();
         if (_currentTurnPhase != TurnPhase.Draw)
         {
             throw new InvalidOperationException("You need to be in draw phase to draw a card");
@@ -84,6 +86,7 @@ public class Game
 
     public void EndPlayPhase()
     {
+        EnsureGameIsRunning();
         if (_currentTurnPhase != TurnPhase.Play)
             throw new InvalidOperationException("You need to be in play phase to play");
         if (CheckIfWinner())
@@ -98,6 +101,7 @@ public class Game
 
     public void DiscardFromHand(Card cardToDiscard)
     {
+        EnsureGameIsRunning();
         if (_currentTurnPhase != TurnPhase.Discard)
             throw new InvalidOperationException(
                 "You need to be in discard phase to discard a card"
@@ -114,6 +118,14 @@ public class Game
     }
 
     private bool CheckIfWinner() => CurrentPlayer.Hand.Count == 0;
+
+    private void EnsureGameIsRunning()
+    {
+        if (IsGameOver)
+        {
+            throw new InvalidOperationException("Game is Over");
+        }
+    }
 
     private void EndRound()
     {
@@ -415,6 +427,7 @@ public class Game
 
     public void TryPlayObjective(IEnumerable<Meld> candidateMelds)
     {
+        EnsureGameIsRunning();
         if (CurrentTurnPhase != TurnPhase.Play) return;
         if (CurrentPlayer.Status != ObjectiveStatus.NotCompleted) return;
         if (!ValidateMeldRequirements(CurrentRound.MeldRequirements, candidateMelds)) return;
@@ -460,6 +473,7 @@ public class Game
 
     public void TryExtendMeld(Card card, Meld meld, MeldSide? side)
     {
+        EnsureGameIsRunning();
         if (CurrentTurnPhase != TurnPhase.Play) return;
         if (CurrentPlayer.Status != ObjectiveStatus.Active) return;
         if (!CheckCardsInHand(CurrentPlayer, new List<Card> { card })) return;

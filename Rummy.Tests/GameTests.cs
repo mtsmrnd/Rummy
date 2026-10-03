@@ -773,4 +773,26 @@ public class GameTests
         Assert.Same(roundTwo, game.CurrentRound);
         Assert.True(game.IsGameOver);
     }
+    
+    [Fact]
+    public void EndPlayPhase_AfterGameOver_ThrowsGameOverException()
+    {
+        var game = new Game();
+        
+        game.DrawFromDeck();
+        game.CurrentPlayer.Hand.ClearHand();
+        game.EndPlayPhase();
+        
+        game.DrawFromDeck();
+        game.CurrentPlayer.Hand.ClearHand();
+        game.EndPlayPhase();
+
+        Assert.True(game.IsGameOver);
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => game.EndPlayPhase()
+        );
+
+        Assert.Equal("Game is Over", exception.Message);
+    }
 }
